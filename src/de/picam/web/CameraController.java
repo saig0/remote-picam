@@ -7,7 +7,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URISyntaxException;
-import java.nio.ByteBuffer;
+import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
 import java.nio.channels.WritableByteChannel;
 import java.nio.file.Paths;
@@ -72,52 +72,8 @@ public class CameraController {
 			movie.addTrack(h264Track);
 
 			Container mp4file = new DefaultMp4Builder().build(movie);
-			mp4file.writeContainer(new WritableByteChannel() {
-
-				public boolean isOpen() {
-					System.out.println("is open?");
-					// TODO Auto-generated method stub
-					return true;
-				}
-
-				public void close() throws IOException {
-					System.out.println("close");
-					// TODO Auto-generated method stub
-					outputStream.close();
-				}
-
-				public int write(ByteBuffer src) throws IOException {
-					System.out.println("write");
-					// TODO Auto-generated method stub
-					// outputStream.write(src.array());
-					int reads = 0;
-
-					// Substitute a native buffer
-					int pos = src.position();
-					int lim = src.limit();
-					int rem = (pos <= lim ? lim - pos : 0);
-					ByteBuffer bb = ByteBuffer.allocateDirect(rem);
-
-					bb.put(src);
-					bb.flip();
-					// Do not update src until we see how many bytes were
-					// written
-					src.position(pos);
-
-					for (int i = 0; i < rem; i++) {
-						System.out.print(".");
-						outputStream.write(bb.get(i));
-						reads += 1;
-
-					}
-					if (reads > 0) {
-						// now update src
-						src.position(pos + reads);
-					}
-
-					return reads;
-				}
-			});
+			WritableByteChannel channel = Channels.newChannel(outputStream);
+			mp4file.writeContainer(channel);
 
 			outputStream.close();
 			response.setStatus(HttpServletResponse.SC_OK);
