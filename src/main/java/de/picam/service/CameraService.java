@@ -4,6 +4,7 @@ import java.io.BufferedInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.ProcessBuilder.Redirect;
 
 import org.springframework.stereotype.Service;
 
@@ -14,12 +15,19 @@ public class CameraService {
 		System.out.println("START PROGRAM");
 
 		try {
-			Process process = Runtime.getRuntime().exec(
-					"raspivid -w 100 -h 100 -n -t 0 -o -");
+			Process process = new ProcessBuilder("/bin/sh", "-c",
+					"raspivid -w 100 -h 100 -n -t 0 -o -").redirectOutput(
+					Redirect.PIPE).start();
+
+			System.out.println("start reading");
+
+			// Process process = Runtime.getRuntime().exec(
+			// "raspivid -w 100 -h 100 -n -t 0 -o -");
 			BufferedInputStream in = new BufferedInputStream(
 					process.getInputStream());
 			return in;
-		} catch (IOException e) {
+		} catch (Exception e) {
+			e.printStackTrace();
 			throw new RuntimeException(e);
 		}
 	}

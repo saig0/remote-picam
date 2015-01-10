@@ -60,11 +60,15 @@ public class CameraController {
 			final ServletOutputStream outputStream = response.getOutputStream();
 			System.out.println("open input stream");
 			InputStream inputStream = service.openStream();
+			System.out.println("create trask");
 			H264TrackImpl h264Track = new H264TrackImpl(inputStream);
 			Movie movie = new Movie();
+			System.out.println("add to movie");
 			movie.addTrack(h264Track);
 
+			System.out.println("build mp4");
 			IsoFile out = new DefaultMp4Builder().build(movie);
+			System.out.println("create channel for output");
 			WritableByteChannel channel = Channels.newChannel(outputStream);
 			System.out.println("write container");
 			// isoFile.writeContainer(channel);
