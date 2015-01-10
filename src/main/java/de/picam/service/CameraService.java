@@ -10,7 +10,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class CameraService {
 
-	public InputStream start() {
+	public InputStream openStream() {
 		System.out.println("START PROGRAM");
 
 		try {

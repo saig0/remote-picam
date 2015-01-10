@@ -1,14 +1,11 @@
 package de.picam.web;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URISyntaxException;
 import java.nio.channels.Channels;
-import java.nio.channels.FileChannel;
 import java.nio.channels.WritableByteChannel;
 import java.nio.file.Paths;
 
@@ -27,8 +24,7 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.coremedia.iso.boxes.Container;
-import com.googlecode.mp4parser.FileDataSourceImpl;
+import com.coremedia.iso.IsoFile;
 import com.googlecode.mp4parser.authoring.Movie;
 import com.googlecode.mp4parser.authoring.builder.DefaultMp4Builder;
 import com.googlecode.mp4parser.authoring.tracks.H264TrackImpl;
@@ -51,10 +47,39 @@ public class CameraController {
 	@RequestMapping("/start")
 	public ResponseEntity<InputStreamResource> start() {
 		InputStreamResource inputStreamResource = new InputStreamResource(
-				service.start());
+				service.openStream());
 		// httpHeaders.setContentLength(contentLengthOfStream);
 		return new ResponseEntity<InputStreamResource>(inputStreamResource,
 				HttpStatus.OK);
+	}
+
+	@RequestMapping(value = "/live", method = RequestMethod.GET)
+	@ResponseBody
+	public void liveStream(HttpServletResponse response) {
+		try {
+			final ServletOutputStream outputStream = response.getOutputStream();
+			System.out.println("open input stream");
+			InputStream inputStream = service.openStream();
+			H264TrackImpl h264Track = new H264TrackImpl(inputStream);
+			Movie movie = new Movie();
+			movie.addTrack(h264Track);
+
+			IsoFile out = new DefaultMp4Builder().build(movie);
+			WritableByteChannel channel = Channels.newChannel(outputStream);
+			System.out.println("write container");
+			// isoFile.writeContainer(channel);
+			out.getBox(channel);
+
+			System.out.println("close output stream");
+			outputStream.close();
+			response.setStatus(HttpServletResponse.SC_OK);
+		} catch (java.io.FileNotFoundException e) {
+			response.setStatus(HttpStatus.NOT_FOUND.value());
+			e.printStackTrace();
+		} catch (Exception e) {
+			response.setStatus(HttpStatus.INTERNAL_SERVER_ERROR.value());
+			e.printStackTrace();
+		}
 	}
 
 	@RequestMapping(value = "/live2", method = RequestMethod.GET)
@@ -63,24 +88,82 @@ public class CameraController {
 		try {
 			final ServletOutputStream outputStream = response.getOutputStream();
 
-			File file = Paths.get(getClass().getResource(VIDEO_FILE).toURI())
-					.toFile();
-			System.out.println("read from " + file.getPath());
-			FileDataSourceImpl dataSource = new FileDataSourceImpl(file);
-			H264TrackImpl h264Track = new H264TrackImpl(dataSource);
+			final InputStream inputStream = getClass().getResourceAsStream(
+					VIDEO_FILE);
+			// final ReadableByteChannel inputChannel = Channels
+			// .newChannel(inputStream);
+			//
+			// DataSource dataSource = new DataSource() {
+			//
+			// private long size = 100000000;
+			// private long pos = 0;
+			//
+			// public long transferTo(long position, long count,
+			// WritableByteChannel target) throws IOException {
+			// // TODO Auto-generated method stub
+			// System.out.println("transfer");
+			// return 0;
+			// }
+			//
+			// public long size() throws IOException {
+			// // TODO Auto-generated method stub
+			// System.out.println("size");
+			// return size;
+			// }
+			//
+			// public int read(ByteBuffer byteBuffer) throws IOException {
+			// System.out.println("read");
+			// int read = inputChannel.read(byteBuffer);
+			// pos += read;
+			// return read;
+			// }
+			//
+			// public void position(long nuPos) throws IOException {
+			// // TODO Auto-generated method stub
+			// System.out.println("position");
+			// }
+			//
+			// public long position() throws IOException {
+			// // TODO Auto-generated method stub
+			// System.out.println("position?");
+			// return pos;
+			// }
+			//
+			// public ByteBuffer map(long startPosition, long size)
+			// throws IOException {
+			// // TODO Auto-generated method stub
+			// System.out.println("map > pos:" + startPosition + " size:"
+			// + size);
+			// ByteBuffer buffer = ByteBuffer.allocate((int) size);
+			// inputChannel.read(buffer);
+			// return buffer;
+			// }
+			//
+			// public void close() throws IOException {
+			// System.out.println("close");
+			// inputChannel.close();
+			// }
+			// };
+
+			H264TrackImpl h264Track = new H264TrackImpl(inputStream);
 			Movie movie = new Movie();
 			movie.addTrack(h264Track);
 
-			Container mp4file = new DefaultMp4Builder().build(movie);
+			IsoFile out = new DefaultMp4Builder().build(movie);
 			WritableByteChannel channel = Channels.newChannel(outputStream);
-			mp4file.writeContainer(channel);
+			System.out.println("write container");
+			// isoFile.writeContainer(channel);
+			out.getBox(channel);
 
+			System.out.println("close output stream");
 			outputStream.close();
 			response.setStatus(HttpServletResponse.SC_OK);
 		} catch (java.io.FileNotFoundException e) {
 			response.setStatus(HttpStatus.NOT_FOUND.value());
+			e.printStackTrace();
 		} catch (Exception e) {
 			response.setStatus(HttpStatus.INTERNAL_SERVER_ERROR.value());
+			e.printStackTrace();
 		}
 	}
 
@@ -88,28 +171,28 @@ public class CameraController {
 	@ResponseBody
 	public Resource live() throws FileNotFoundException, IOException,
 			URISyntaxException {
-		// InputStream inputStream = getClass().getResourceAsStream(VIDEO_FILE);
 
 		File file = Paths.get(getClass().getResource(VIDEO_FILE).toURI())
 				.toFile();
 		System.out.println("read from " + file.getPath());
 
-		H264TrackImpl h264Track = new H264TrackImpl(
-				new FileDataSourceImpl(file));
-		Movie movie = new Movie();
-		movie.addTrack(h264Track);
+		// FileDataSourceImpl dataSource = new FileDataSourceImpl(file);
+		// H264TrackImpl h264Track = new H264TrackImpl(dataSource);
+		// Movie movie = new Movie();
+		// movie.addTrack(h264Track);
+		//
+		// final Container mp4file = new DefaultMp4Builder().build(movie);
+		//
+		// File out = new File(file.getParent(), "output.mp4");
+		// FileChannel fc = new FileOutputStream(out).getChannel();
+		// mp4file.writeContainer(fc);
+		// fc.close();
+		//
+		// System.out.println("write output to " + out.getPath());
 
-		final Container mp4file = new DefaultMp4Builder().build(movie);
+		// return new InputStreamResource(new FileInputStream(out.getPath()));
 
-		File out = new File(file.getParent(), "output.mp4");
-		FileChannel fc = new FileOutputStream(out).getChannel();
-		mp4file.writeContainer(fc);
-		fc.close();
-
-		System.out.println("write output to " + out.getPath());
-
-		return new InputStreamResource(new FileInputStream(out.getPath()));
-
+		return null;
 	}
 
 	@RequestMapping("/test")
