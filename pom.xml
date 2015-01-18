@@ -37,8 +37,7 @@
 
 	<properties>
 		<java.version>1.8</java.version>
-		<!-- <isoparser.version>1.0.5.4</isoparser.version> -->
-		<isoparser.version>1.0-RC-23-SNAPSHOT</isoparser.version>
+		<isoparser.version>1.0.5.4</isoparser.version>
 	</properties>
 
 </project>

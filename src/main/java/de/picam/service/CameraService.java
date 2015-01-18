@@ -1,6 +1,7 @@
 package de.picam.service;
 
 import java.io.BufferedInputStream;
+import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -11,18 +12,27 @@ import org.springframework.stereotype.Service;
 @Service
 public class CameraService {
 
-	public InputStream openStream() {
-		System.out.println("START PROGRAM");
+	private Process startProcess() throws IOException {
+		System.out.println("start pi-cam");
+		Process process = new ProcessBuilder("/bin/sh", "-c",
+				"raspivid -w 100 -h 100 -n -ih -t 0 -o -").redirectOutput(
+				Redirect.PIPE).start();
+		return process;
+	}
 
+	private Process stopProcess() throws IOException {
+		System.out.println("stop pi-cam");
+		Process process = new ProcessBuilder("/bin/sh", "-c",
+				"killall raspivid").start();
+		return process;
+	}
+
+	public InputStream openStream() {
 		try {
-			Process process = new ProcessBuilder("/bin/sh", "-c",
-					"raspivid -w 100 -h 100 -n -t 0 -o -").redirectOutput(
-					Redirect.PIPE).start();
+			Process process = startProcess();
 
 			System.out.println("start reading");
 
-			// Process process = Runtime.getRuntime().exec(
-			// "raspivid -w 100 -h 100 -n -t 0 -o -");
 			BufferedInputStream in = new BufferedInputStream(
 					process.getInputStream());
 			return in;
@@ -34,24 +44,21 @@ public class CameraService {
 
 	public void stop() {
 		try {
-			Runtime.getRuntime().exec("killall raspivid");
+			stopProcess();
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}
 	}
 
-	public void test() {
-		System.out.println("START PROGRAM");
-		long start = System.currentTimeMillis();
+	public void record(File output) {
 		try {
 
-			Process p = Runtime.getRuntime().exec(
-					"raspivid -w 100 -h 100 -n -t 10000 -o -");
+			Process process = startProcess();
 			BufferedInputStream bis = new BufferedInputStream(
-					p.getInputStream());
+					process.getInputStream());
 			// Direct methode p.getInputStream().read() also possible, but
 			// BufferedInputStream gives 0,5-1s better performance
-			FileOutputStream fos = new FileOutputStream("testvid.h264");
+			FileOutputStream fos = new FileOutputStream(output);
 
 			System.out.println("start writing");
 			int read = bis.read();
@@ -68,8 +75,5 @@ public class CameraService {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-		System.out.println("END PROGRAM");
-		System.out.println("Duration in ms: "
-				+ (System.currentTimeMillis() - start));
 	}
 }

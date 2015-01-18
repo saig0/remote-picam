@@ -1,12 +1,37 @@
 <!DOCTYPE html> 
 <html> 
+<head>
+    <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
+</head>
 <body> 
 
-<video width="400" controls>
-  <!-- <source src="test.mp4" type="video/mp4"> -->
-  <source src="http://192.168.0.202:8080/live" type="video/mp4">
+<video id="vid" width="400" controls>
+ <source src="http://192.168.0.202:8080/stream/mp4" type="video/mp4">
   Your browser does not support HTML5 video.
 </video>
+
+<br/>
+<button onclick="startRecord()">start record</button> 
+<button onclick="stopRecord()">stop record</button> 
+<button onclick="loadVideo()">reload video</button> 
+
+<script type="text/javascript"> 
+        var vid = document.getElementById("vid");
+        vid.autoplay = false;
+        
+        function loadVideo() { 
+            vid.load();
+            vid.play();
+        }
+        
+        function startRecord() {
+            $.ajax({ type: 'POST',url: "http://192.168.0.202:8080/record" });
+        }
+        
+        function stopRecord() {
+            $.ajax({ type: 'POST',url: "http://192.168.0.202:8080/stop" });
+        }
+    </script>
 
 </body> 
 </html>
