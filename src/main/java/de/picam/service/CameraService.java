@@ -87,11 +87,14 @@ public class CameraService {
 		isActive = true;
 		System.out.println("start pi-cam");
 
-		// new ProcessBuilder(
-		// "/bin/sh",
-		// "-c",
-		// "raspivid -n --width 1920 --height 1080 --framerate 25 --segment "+intervalInSeconds+" --wrap "+count+" --timeout 0 -o "+fileName)
-		// .start();
+		try {
+			new ProcessBuilder("/bin/sh", "-c",
+					"raspivid -n --width 1920 --height 1080 --framerate 25 --segment "
+							+ (intervalInSeconds * 1000) + " --wrap " + count
+							+ " --timeout 0 -o " + fileName).start();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 
 		final CountDownLatch countDownLatch = new CountDownLatch(1);
 
