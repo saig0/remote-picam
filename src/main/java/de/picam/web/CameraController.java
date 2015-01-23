@@ -39,45 +39,18 @@ import de.picam.service.CameraService;
 public class CameraController {
 
 	private final class StreamDataSource implements DataSource {
+		private final long fixSize = 1000;
 		private final ReadableByteChannel inputChannel;
-		private long fixSize = 1000;
-		private long streamSize = 20757463;
 		private long pos = 0;
+		private final long streamSize = 20757463;
 
 		private StreamDataSource(ReadableByteChannel inputChannel) {
 			this.inputChannel = inputChannel;
 		}
 
-		public long transferTo(long position, long count,
-				WritableByteChannel target) throws IOException {
-			// TODO Auto-generated method stub
-			System.out.println("transfer");
-			return 0;
-		}
-
-		public long size() throws IOException {
-			// TODO Auto-generated method stub
-			System.out.println("size");
-			// return Long.MAX_VALUE;
-			return streamSize;
-		}
-
-		public int read(ByteBuffer byteBuffer) throws IOException {
-			System.out.println("read");
-			int read = inputChannel.read(byteBuffer);
-			pos += read;
-			return read;
-		}
-
-		public void position(long nuPos) throws IOException {
-			// TODO Auto-generated method stub
-			System.out.println("position");
-		}
-
-		public long position() throws IOException {
-			// TODO Auto-generated method stub
-			System.out.println("position?");
-			return pos;
+		public void close() throws IOException {
+			System.out.println("close");
+			inputChannel.close();
 		}
 
 		public ByteBuffer map(long startPosition, long size) throws IOException {
@@ -90,9 +63,36 @@ public class CameraController {
 			return buffer;
 		}
 
-		public void close() throws IOException {
-			System.out.println("close");
-			inputChannel.close();
+		public long position() throws IOException {
+			// TODO Auto-generated method stub
+			System.out.println("position?");
+			return pos;
+		}
+
+		public void position(long nuPos) throws IOException {
+			// TODO Auto-generated method stub
+			System.out.println("position");
+		}
+
+		public int read(ByteBuffer byteBuffer) throws IOException {
+			System.out.println("read");
+			int read = inputChannel.read(byteBuffer);
+			pos += read;
+			return read;
+		}
+
+		public long size() throws IOException {
+			// TODO Auto-generated method stub
+			System.out.println("size");
+			// return Long.MAX_VALUE;
+			return streamSize;
+		}
+
+		public long transferTo(long position, long count,
+				WritableByteChannel target) throws IOException {
+			// TODO Auto-generated method stub
+			System.out.println("transfer");
+			return 0;
 		}
 	}
 
@@ -135,6 +135,41 @@ public class CameraController {
 			out.writeContainer(writeChannel);
 
 			System.out.println("close output stream");
+			outputStream.close();
+			response.setStatus(HttpServletResponse.SC_OK);
+		} catch (java.io.FileNotFoundException e) {
+			response.setStatus(HttpStatus.NOT_FOUND.value());
+			e.printStackTrace();
+		} catch (Exception e) {
+			response.setStatus(HttpStatus.INTERNAL_SERVER_ERROR.value());
+			e.printStackTrace();
+		}
+	}
+
+	@RequestMapping("/live2")
+	@ResponseBody
+	public void liveWithDelay(HttpServletResponse response)
+			throws FileNotFoundException, IOException, URISyntaxException {
+		try {
+			if (!service.isActive()) {
+				service.recordWithInterval();
+			}
+
+			File file = service.getLastVideo();
+			System.out.println("stream from " + file.getAbsolutePath());
+
+			final ServletOutputStream outputStream = response.getOutputStream();
+
+			H264TrackImpl h264Track = new H264TrackImpl(new FileDataSourceImpl(
+					file), "eng", 25, 1);
+
+			Movie movie = new Movie();
+			movie.addTrack(h264Track);
+
+			Container out = new DefaultMp4Builder().build(movie);
+			WritableByteChannel channel = Channels.newChannel(outputStream);
+			out.writeContainer(channel);
+
 			outputStream.close();
 			response.setStatus(HttpServletResponse.SC_OK);
 		} catch (java.io.FileNotFoundException e) {
@@ -216,48 +251,6 @@ public class CameraController {
 		System.out.println("read h264, covert to mp4 and stream");
 		try {
 			File file = Paths.get(VIDEO_FILE).toFile();
-			System.out.println("read from " + file.getPath());
-
-			final ServletOutputStream outputStream = response.getOutputStream();
-
-			H264TrackImpl h264Track = new H264TrackImpl(new FileDataSourceImpl(
-					file));
-
-			Movie movie = new Movie();
-			System.out.println("add to movie");
-			movie.addTrack(h264Track);
-
-			System.out.println("covert to mp4");
-			Container out = new DefaultMp4Builder().build(movie);
-			WritableByteChannel channel = Channels.newChannel(outputStream);
-			System.out.println("write to mp4");
-			out.writeContainer(channel);
-
-			System.out.println("close output stream");
-			outputStream.close();
-			response.setStatus(HttpServletResponse.SC_OK);
-		} catch (java.io.FileNotFoundException e) {
-			response.setStatus(HttpStatus.NOT_FOUND.value());
-			e.printStackTrace();
-		} catch (Exception e) {
-			response.setStatus(HttpStatus.INTERNAL_SERVER_ERROR.value());
-			e.printStackTrace();
-		}
-	}
-
-	@RequestMapping("/live2")
-	@ResponseBody
-	public void live2(HttpServletResponse response)
-			throws FileNotFoundException, IOException, URISyntaxException {
-		try {
-			if (!service.isActive()) {
-				System.out.println("pi cam not active");
-				service.recordToActiveFile();
-				Thread.sleep(2000);
-			}
-			System.out.println("pi cam active");
-
-			File file = service.getLastVideo();
 			System.out.println("read from " + file.getPath());
 
 			final ServletOutputStream outputStream = response.getOutputStream();

@@ -1,0 +1,36 @@
+ffmpeg -r 30 -i test.h264 -vcodec copy test3.mp4
+
+cat test.h264 | ffmpeg -r 30 -i pipe:0 -vcodec copy test3.mp4
+cat test.h264 | ffmpeg -r 30 -i - -vcodec copy test3.mp4
+
+cat test.h264 | ffmpeg -r 30 -i - -vcodec copy -f matroska - | cat  > test6.mp4
+
+raspivid -n -t 0 -o - | ffmpeg -r 25 -i - -vcodec copy -f matroska - | cat  > test7.mp4
+
+cat test.h264 | ffmpeg -r 25 -i - -vcodec h264 -f mp4  - | cat  > test.mp4
+
+cat test.h264 | ffmpeg -re -i - -g 52 -vcodec libx264 -vb 448k -f mp4 -movflags frag_keyframe+empty_moov - | cat  > test.mp4
+
+cat test.h264 | ffmpeg -i - -i_qfactor 0.71 -qcomp 0.6 -qmin 10 -qmax 63 -qdiff 4 -trellis 0 -vcodec libx264 -s 640x360 -b:v 1000k -b:a 56k -ar 22050 test.mp4
+
+cat test.h264 | ffmpeg -i - -i_qfactor 0.71 -qcomp 0.6 -qmin 10 -qmax 63 -qdiff 4 -trellis 0 -vcodec copy -s 640x360 -b:v 1000k -b:a 56k -ar 22050 test.mp4
+
+
+cat test.h264 | ffmpeg -i - -s 640x360 -qmax 63 -b:v 1000k -b:a 56k -ar 22050 -acodec vorbis test.webm
+
+--------
+works: 
+avconv -i test2.h264 -c:v copy test2.mp4
+
+cat test.h264 | avconv -i - -c:v copy - | cat test3.mp4
+
+works:
+raspivid -n -t 0 -o - | avconv -i - -c:v copy test3.mp4
+
+avconv -i test2.h264 -c:v copy | cat > test4.mp3
+
+----
+
+raspivid -w 100 -h 100 -n -ih -t 0 -o video.h264
+
+raspivid -n --width 1920 --height 1080 --framerate 25 --segment 1000 --wrap 4 --timeout 0 -o video%04d.h264
