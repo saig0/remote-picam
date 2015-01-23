@@ -245,4 +245,46 @@ public class CameraController {
 		}
 	}
 
+	@RequestMapping("/live2")
+	@ResponseBody
+	public void live2(HttpServletResponse response)
+			throws FileNotFoundException, IOException, URISyntaxException {
+		try {
+			if (!service.isActive()) {
+				System.out.println("pi cam not active");
+				service.recordToActiveFile();
+				Thread.sleep(2000);
+			}
+			System.out.println("pi cam active");
+
+			File file = service.getLastVideo();
+			System.out.println("read from " + file.getPath());
+
+			final ServletOutputStream outputStream = response.getOutputStream();
+
+			H264TrackImpl h264Track = new H264TrackImpl(new FileDataSourceImpl(
+					file));
+
+			Movie movie = new Movie();
+			System.out.println("add to movie");
+			movie.addTrack(h264Track);
+
+			System.out.println("covert to mp4");
+			Container out = new DefaultMp4Builder().build(movie);
+			WritableByteChannel channel = Channels.newChannel(outputStream);
+			System.out.println("write to mp4");
+			out.writeContainer(channel);
+
+			System.out.println("close output stream");
+			outputStream.close();
+			response.setStatus(HttpServletResponse.SC_OK);
+		} catch (java.io.FileNotFoundException e) {
+			response.setStatus(HttpStatus.NOT_FOUND.value());
+			e.printStackTrace();
+		} catch (Exception e) {
+			response.setStatus(HttpStatus.INTERNAL_SERVER_ERROR.value());
+			e.printStackTrace();
+		}
+	}
+
 }
