@@ -40,7 +40,8 @@ public class CameraController {
 
 	private final class StreamDataSource implements DataSource {
 		private final ReadableByteChannel inputChannel;
-		private long fixSize = 10000000;
+		private long fixSize = 1000;
+		private long streamSize = 20757463;
 		private long pos = 0;
 
 		private StreamDataSource(ReadableByteChannel inputChannel) {
@@ -56,9 +57,9 @@ public class CameraController {
 
 		public long size() throws IOException {
 			// TODO Auto-generated method stub
-			// System.out.println("size");
+			System.out.println("size");
 			// return Long.MAX_VALUE;
-			return Long.valueOf(100000000000000l);
+			return streamSize;
 		}
 
 		public int read(ByteBuffer byteBuffer) throws IOException {
@@ -82,8 +83,10 @@ public class CameraController {
 		public ByteBuffer map(long startPosition, long size) throws IOException {
 			// TODO Auto-generated method stub
 			System.out.println("map > pos:" + startPosition + " size:" + size);
-			ByteBuffer buffer = ByteBuffer.allocate((int) fixSize);
-			inputChannel.read(buffer);
+			// ByteBuffer buffer = ByteBuffer.allocate((int) fixSize);
+			ByteBuffer buffer = ByteBuffer.allocate((int) size);
+			int read = inputChannel.read(buffer);
+			System.out.println("map - read bytes: " + read);
 			return buffer;
 		}
 
@@ -107,13 +110,17 @@ public class CameraController {
 		try {
 			final ServletOutputStream outputStream = response.getOutputStream();
 			System.out.println("open input stream");
-			InputStream inputStream = service.openStream();
+			// InputStream inputStream = service.openStream();
+
+			InputStream inputStream = getClass().getResourceAsStream(
+					"/test2.h264");
 			System.out.println("create trask");
 
 			final ReadableByteChannel inputChannel = Channels
 					.newChannel(inputStream);
 			DataSource dataSource = new StreamDataSource(inputChannel);
-			H264TrackImpl h264Track = new H264TrackImpl(dataSource);
+			H264TrackImpl h264Track = new H264TrackImpl(dataSource, "eng", 25,
+					1);
 
 			Movie movie = new Movie();
 			System.out.println("add to movie");
@@ -122,9 +129,10 @@ public class CameraController {
 			System.out.println("build mp4");
 			Container out = new DefaultMp4Builder().build(movie);
 			System.out.println("create channel for output");
-			WritableByteChannel channel = Channels.newChannel(outputStream);
+			WritableByteChannel writeChannel = Channels
+					.newChannel(outputStream);
 			System.out.println("write container");
-			out.writeContainer(channel);
+			out.writeContainer(writeChannel);
 
 			System.out.println("close output stream");
 			outputStream.close();
