@@ -101,12 +101,53 @@ public class CameraController {
 	@Autowired
 	private CameraService service;
 
+	@RequestMapping(value = "/live/start", method = RequestMethod.POST)
+	public void liveStart() {
+		if (!service.isActive()) {
+			service.recordWithInterval();
+		}
+	}
+
+	@RequestMapping("/live/stream")
+	@ResponseBody
+	public void liveStream(HttpServletResponse response)
+			throws FileNotFoundException, IOException, URISyntaxException {
+		if (service.isActive()) {
+			try {
+				File file = service.getLastVideo();
+				System.out.println("stream from " + file.getAbsolutePath());
+
+				final ServletOutputStream outputStream = response
+						.getOutputStream();
+
+				H264TrackImpl h264Track = new H264TrackImpl(
+						new FileDataSourceImpl(file), "eng", 25, 1);
+
+				Movie movie = new Movie();
+				movie.addTrack(h264Track);
+
+				Container out = new DefaultMp4Builder().build(movie);
+				WritableByteChannel channel = Channels.newChannel(outputStream);
+				out.writeContainer(channel);
+
+				outputStream.close();
+				response.setStatus(HttpServletResponse.SC_OK);
+			} catch (java.io.FileNotFoundException e) {
+				response.setStatus(HttpStatus.NOT_FOUND.value());
+				e.printStackTrace();
+			} catch (Exception e) {
+				response.setStatus(HttpStatus.INTERNAL_SERVER_ERROR.value());
+				e.printStackTrace();
+			}
+		}
+	}
+
 	/**
 	 * stream data source don't read input stream correctly
 	 */
 	@RequestMapping(value = "/live", method = RequestMethod.GET)
 	@ResponseBody
-	public void liveStream(HttpServletResponse response) {
+	public void liveTest(HttpServletResponse response) {
 		try {
 			final ServletOutputStream outputStream = response.getOutputStream();
 			System.out.println("open input stream");
@@ -135,41 +176,6 @@ public class CameraController {
 			out.writeContainer(writeChannel);
 
 			System.out.println("close output stream");
-			outputStream.close();
-			response.setStatus(HttpServletResponse.SC_OK);
-		} catch (java.io.FileNotFoundException e) {
-			response.setStatus(HttpStatus.NOT_FOUND.value());
-			e.printStackTrace();
-		} catch (Exception e) {
-			response.setStatus(HttpStatus.INTERNAL_SERVER_ERROR.value());
-			e.printStackTrace();
-		}
-	}
-
-	@RequestMapping("/live2")
-	@ResponseBody
-	public void liveWithDelay(HttpServletResponse response)
-			throws FileNotFoundException, IOException, URISyntaxException {
-		try {
-			if (!service.isActive()) {
-				service.recordWithInterval();
-			}
-
-			File file = service.getLastVideo();
-			System.out.println("stream from " + file.getAbsolutePath());
-
-			final ServletOutputStream outputStream = response.getOutputStream();
-
-			H264TrackImpl h264Track = new H264TrackImpl(new FileDataSourceImpl(
-					file), "eng", 25, 1);
-
-			Movie movie = new Movie();
-			movie.addTrack(h264Track);
-
-			Container out = new DefaultMp4Builder().build(movie);
-			WritableByteChannel channel = Channels.newChannel(outputStream);
-			out.writeContainer(channel);
-
 			outputStream.close();
 			response.setStatus(HttpServletResponse.SC_OK);
 		} catch (java.io.FileNotFoundException e) {

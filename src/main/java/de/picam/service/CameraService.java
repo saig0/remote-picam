@@ -18,24 +18,34 @@ import org.springframework.stereotype.Service;
 @Service
 public class CameraService {
 
-	@Value("${video.count:10}")
-	private int count;
-
 	@Value("${video.directory:}")
 	private String directory;
 
 	private ScheduledExecutorService executor;
 
-	private final String fileName = "video%04d.h264";
+	@Value("${video.filename:video%04d.h264}")
+	private String fileName;
+
+	@Value("${video.framerate:25}")
+	private String frameRate;
+
+	@Value("${video.height:100}")
+	private int height;
 
 	@Value("${video.interval:10}")
 	private int intervalInSeconds;
 
 	private boolean isActive = false;
+
 	private int lastVideo = 0;
+	@Value("${video.maxVideos:10}")
+	private int maxVideos;
+
+	@Value("${video.width:100}")
+	private int width;
 
 	public File getLastVideo() {
-		String path = directory + String.format(fileName, lastVideo);
+		String path = getVideoPath(String.format(fileName, lastVideo));
 		File video = Paths.get(path).toFile();
 		return video;
 	}
@@ -88,10 +98,11 @@ public class CameraService {
 		System.out.println("start pi-cam");
 
 		try {
-			new ProcessBuilder("/bin/sh", "-c",
-					"raspivid -n --width 1920 --height 1080 --framerate 25 --segment "
-							+ (intervalInSeconds * 1000) + " --wrap " + count
-							+ " --timeout 0 -o " + fileName).start();
+			new ProcessBuilder("/bin/sh", "-c", "raspivid -n --width " + width
+					+ " --height " + height + " --framerate " + frameRate
+					+ " --segment " + (intervalInSeconds * 1000) + " --wrap "
+					+ maxVideos + " --timeout 0 -o " + getVideoPath(fileName))
+					.start();
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -102,7 +113,7 @@ public class CameraService {
 		executor.scheduleAtFixedRate(new Runnable() {
 
 			public void run() {
-				lastVideo = 1 + (lastVideo % count);
+				lastVideo = 1 + (lastVideo % maxVideos);
 
 				countDownLatch.countDown();
 			}
@@ -131,6 +142,13 @@ public class CameraService {
 		}
 	}
 
+	private String getVideoPath(String fileName) {
+		if (!directory.endsWith("/")) {
+			directory = directory + "/";
+		}
+		return directory + fileName;
+	}
+
 	private void reset() {
 		lastVideo = 0;
 		if (executor != null) {
@@ -143,13 +161,14 @@ public class CameraService {
 		isActive = true;
 
 		System.out.println("start pi-cam");
-		Process process = new ProcessBuilder("/bin/sh", "-c",
-				"raspivid -w 100 -h 100 -n -ih -t 0 -o -").redirectOutput(
-				Redirect.PIPE).start();
+		Process process = new ProcessBuilder("/bin/sh", "-c", "raspivid -w "
+				+ width + " -h " + height + " -n -ih -t 0 -o -")
+				.redirectOutput(Redirect.PIPE).start();
 		return process;
 	}
 
 	private Process stopProcess() throws IOException {
+		isActive = false;
 		System.out.println("stop pi-cam");
 		Process process = new ProcessBuilder("/bin/sh", "-c",
 				"killall raspivid").start();
