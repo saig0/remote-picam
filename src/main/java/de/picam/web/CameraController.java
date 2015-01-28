@@ -101,13 +101,6 @@ public class CameraController {
 	@Autowired
 	private CameraService service;
 
-	@RequestMapping(value = "/live/start", method = RequestMethod.POST)
-	public void liveStart() {
-		if (!service.isActive()) {
-			service.recordWithInterval();
-		}
-	}
-
 	@RequestMapping("/live/stream")
 	@ResponseBody
 	public void liveStream(HttpServletResponse response)
@@ -195,6 +188,13 @@ public class CameraController {
 			URISyntaxException {
 		System.out.println("record camera");
 		service.record(Paths.get(VIDEO_FILE).toFile());
+	}
+
+	@RequestMapping(value = "/live/start", method = RequestMethod.POST)
+	public void startLiveStream() {
+		if (!service.isActive()) {
+			service.recordWithInterval();
+		}
 	}
 
 	/**

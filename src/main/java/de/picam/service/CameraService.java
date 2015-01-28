@@ -6,11 +6,16 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.ProcessBuilder.Redirect;
+import java.nio.file.FileSystems;
+import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardWatchEventKinds;
+import java.nio.file.WatchEvent;
+import java.nio.file.WatchKey;
+import java.nio.file.WatchService;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -18,10 +23,12 @@ import org.springframework.stereotype.Service;
 @Service
 public class CameraService {
 
+	private File currentVideo;
+
 	@Value("${video.directory:}")
 	private String directory;
 
-	private ScheduledExecutorService executor;
+	private ExecutorService executor = Executors.newSingleThreadExecutor();
 
 	@Value("${video.filename:video%04d.h264}")
 	private String fileName;
@@ -37,7 +44,7 @@ public class CameraService {
 
 	private boolean isActive = false;
 
-	private int lastVideo = 0;
+	private File lastVideo;
 	@Value("${video.maxVideos:10}")
 	private int maxVideos;
 
@@ -45,9 +52,8 @@ public class CameraService {
 	private int width;
 
 	public File getLastVideo() {
-		String path = getVideoPath(String.format(fileName, lastVideo));
-		File video = Paths.get(path).toFile();
-		return video;
+		File absolutePathToVideo = new File(getVideoPath(lastVideo.toString()));
+		return absolutePathToVideo;
 	}
 
 	public boolean isActive() {
@@ -107,29 +113,15 @@ public class CameraService {
 			e.printStackTrace();
 		}
 
-		final CountDownLatch countDownLatch = new CountDownLatch(1);
-
-		executor = Executors.newSingleThreadScheduledExecutor();
-		executor.scheduleAtFixedRate(new Runnable() {
-
-			public void run() {
-				lastVideo = 1 + (lastVideo % maxVideos);
-
-				countDownLatch.countDown();
-			}
-		}, intervalInSeconds, intervalInSeconds, TimeUnit.SECONDS);
-
-		try {
-			countDownLatch.await();
-		} catch (InterruptedException e) {
-			e.printStackTrace();
-		}
+		startWatcherService();
 	}
 
 	public void stop() {
 		try {
 			stopProcess();
-			reset();
+			currentVideo = null;
+			lastVideo = null;
+			executor.shutdown();
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}
@@ -149,13 +141,6 @@ public class CameraService {
 		return directory + fileName;
 	}
 
-	private void reset() {
-		lastVideo = 0;
-		if (executor != null) {
-			executor.shutdown();
-		}
-	}
-
 	private Process startProcess() throws IOException {
 		assertNotActive();
 		isActive = true;
@@ -165,6 +150,59 @@ public class CameraService {
 				+ width + " -h " + height + " -n -ih -t 0 -o -")
 				.redirectOutput(Redirect.PIPE).start();
 		return process;
+	}
+
+	private void startWatcherService() {
+		final CountDownLatch counter = new CountDownLatch(1);
+
+		executor = Executors.newSingleThreadExecutor();
+		executor.execute(new Runnable() {
+
+			public void run() {
+				try {
+					WatchService watcher = FileSystems.getDefault()
+							.newWatchService();
+					Paths.get(directory).register(watcher,
+							StandardWatchEventKinds.ENTRY_MODIFY);
+					for (;;) {
+						WatchKey watchKey = watcher.take();
+						for (WatchEvent<?> e : watchKey.pollEvents()) {
+							WatchEvent<Path> event = (WatchEvent<Path>) e;
+							File modifiedFile = event.context().toFile();
+
+							// FIXME check the name of modified file
+							if (modifiedFile.getName().startsWith("video")
+									&& !modifiedFile.equals(currentVideo)
+									&& !modifiedFile.equals(lastVideo)) {
+								System.out.println("new video: "
+										+ modifiedFile.getAbsolutePath());
+
+								lastVideo = currentVideo;
+								currentVideo = modifiedFile;
+
+								if (lastVideo != null) {
+									counter.countDown();
+								}
+							}
+
+						}
+						watchKey.reset();
+					}
+				} catch (IOException e) {
+					e.printStackTrace();
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+			}
+		});
+
+		System.out.println("wait for video");
+		try {
+			counter.await();
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+		System.out.println("video is ready!");
 	}
 
 	private Process stopProcess() throws IOException {

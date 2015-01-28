@@ -13,12 +13,11 @@
 <br/>
 <button onclick="startRecord()">start live stream</button>
 <button onclick="stopRecord()">stop video</button> 
-<button onclick="loadVideo()">reload live stream</button> 
+<button id="loadVideoButton" onclick="loadVideo()">reload live stream</button> 
 
 <script type="text/javascript"> 
         var vid = document.getElementById("vid");
         vid.autoplay = false;
-        //vid.loop = true;
         
         vid.onended = function() {
             loadVideo();
@@ -31,15 +30,12 @@
         
         function startRecord() {
             $.post("/live/start", function() {
-                    // started
-                    loadVideo();
+                    loadVideo();                  
             });
         }
         
         function stopRecord() {
-            $.post("/stop", function() {
-                    // stoped
-            });
+            $.post("/stop");
         }
     </script>
 
